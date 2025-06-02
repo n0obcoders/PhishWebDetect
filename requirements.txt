@@ -1,0 +1,4 @@
+python-whois
+dnspython
+requests
+ratelimit
