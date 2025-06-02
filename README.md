@@ -18,7 +18,7 @@ A comprehensive Python-based command-line tool to analyze suspicious domains and
 
 Clone the repository and install dependencies:
 
-```bash
+
 git clone https://github.com/n0obcoders/PhishWebDetect.git
 cd PhishWebDetect
 pip install -r requirements.txt
