@@ -6,11 +6,11 @@ import json
 import re
 import ssl
 import dns.resolver
+import tldextract
 
 # API keys
 ABUSEIPDB_API_KEY = "0018b5611a35cdeade80bbf56d25ed06944bde106fb463f7e5587cb48c3ef64ae9a30411132ba84f"
 URLSCAN_API_KEY = "01973120-2bc1-71af-b13f-9c9ed9d97b2f"
-SHODAN_API_KEY = "xtnMzl1rtZ4B6P6j74HEwNrKV1W6jPIP"
 
 def is_recent_domain(domain):
     try:
@@ -136,6 +136,28 @@ def check_ip_geolocation(ip):
         print(f"[!] IP geolocation check failed: {e}")
         return False
 
+def get_abuse_contact_from_rdap(domain):
+    try:
+        extracted = tldextract.extract(domain)
+        root_domain = f"{extracted.domain}.{extracted.suffix}"
+        url = f"https://rdap.org/domain/{root_domain}"
+        response = requests.get(url, timeout=10)
+        data = response.json()
+
+        for entity in data.get("entities", []):
+            for role in entity.get("roles", []):
+                if role == "abuse":
+                    for vcard in entity.get("vcardArray", [])[1]:
+                        if vcard[0] == "email":
+                            email = vcard[3]
+                            print(f"[i] Abuse contact from RDAP: {email}")
+                            return email
+        print("[!] No abuse contact found via RDAP.")
+        return None
+    except Exception as e:
+        print(f"[!] RDAP abuse contact lookup failed: {e}")
+        return None
+
 def generate_takedown_template(domain, abuse_email, expiry_date, abuse_count, cert_days):
     expiry_str = expiry_date.strftime('%Y-%m-%d') if isinstance(expiry_date, datetime.datetime) else str(expiry_date)
     contact = abuse_email if abuse_email else "abuse@registrar.example"
@@ -194,7 +216,9 @@ def analyze_and_identify_phishing(domain):
     else:
         print("✅ This site appears to be safe.")
 
-    generate_takedown_template(domain, abuse_contact, expiry_date, abuse_count, cert_days)
+    rdap_contact = get_abuse_contact_from_rdap(domain)
+    contact_email = rdap_contact if rdap_contact else abuse_contact
+    generate_takedown_template(domain, contact_email, expiry_date, abuse_count, cert_days)
 
 if __name__ == "__main__":
     domain = input("Enter domain to analyze (e.g., example.com): ").strip()
